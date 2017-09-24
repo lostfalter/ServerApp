@@ -18,8 +18,14 @@ public:
 
     asio::ip::tcp::socket& GetSocket();
 private:
+    void OnReadDone(const asio::error_code& errorCode, size_t transferredByte);
+
     void OnWriteDone(const asio::error_code& errorCode, size_t transferredByte);
 private:
-    asio::ip::tcp::socket m_socket;
-    std::string m_message;
+    asio::ip::tcp::socket mSocket;
+    
+    std::string mWelcomeMessage;
+    std::string mMessage;
+
+    std::array<char, 128> mBuffer;
 };

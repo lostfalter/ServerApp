@@ -5,9 +5,12 @@
 
 #include "asio.hpp"
 
-EchoClient::EchoClient()
-    : m_thread(NULL), m_exit(false)
+EchoClient::EchoClient(std::string serverPort)
+    : mThread(NULL), mExit(false), mServerPort(serverPort), mSocket(mIOService)
 {
+
+    mServerIPAddress = "127.0.0.1";
+
     Run();
 }
 
@@ -18,21 +21,9 @@ EchoClient::~EchoClient()
 
 void EchoClient::WorkingJob()
 {
-    std::string ipAddress = "127.0.0.1";
-    
-    using asio::ip::tcp;
-
     try
     {
-        asio::io_service ioService;
-
-        tcp::resolver resolver(ioService);
-        tcp::resolver::query query(ipAddress, "daytime");
-        tcp::resolver::iterator endpointIterator = resolver.resolve(query);
-
-        tcp::socket socket(ioService);
-
-        asio::connect(socket, endpointIterator);
+        ConnectToServer();
 
         while (true)
         {
@@ -41,23 +32,16 @@ void EchoClient::WorkingJob()
                 break;
             }
 
-            std::array<char, 128> buffer;
-            asio::error_code errorCode;
+            WaitForUserInput();
 
-            size_t len = socket.read_some(asio::buffer(buffer), errorCode);
-
-            if (errorCode == asio::error::eof)
+            if (mInputMessage == "exit")
             {
-                // connection has been ended
                 break;
             }
-            else if (errorCode)
-            {
-                throw asio::system_error(errorCode);
-                // other error
-            }
 
-            std::cout.write(buffer.data(), len);
+            SendMessageToServer();
+
+            ReceiveMessageFromServer();
         }
     }
     catch (std::exception& e)
@@ -66,30 +50,82 @@ void EchoClient::WorkingJob()
     }
 }
 
+void EchoClient::ConnectToServer()
+{
+    using asio::ip::tcp;
+
+    tcp::resolver resolver(mIOService);
+    tcp::resolver::query query(mServerIPAddress, mServerPort);
+    mEndpointIterator = resolver.resolve(query);
+
+    asio::connect(mSocket, mEndpointIterator);
+
+    ReceiveMessageFromServer();
+}
+
+void EchoClient::WaitForUserInput()
+{
+    std::getline(std::cin, mInputMessage);
+}
+
+void EchoClient::SendMessageToServer()
+{
+    asio::write(mSocket,  asio::buffer(mInputMessage));
+}
+
+void EchoClient::ReceiveMessageFromServer()
+{
+
+    asio::error_code errorCode;
+    size_t len = mSocket.read_some(asio::buffer(mBuffer), errorCode);
+
+    if (errorCode == asio::error::eof)
+    {
+        // connection has been ended
+        std::cout << "Connection has been closed from server.\n";
+        mExit = true;
+    }
+    else if (errorCode)
+    {
+        std::cout << "Connection has been closed from server.\n";
+
+        throw asio::system_error(errorCode);
+        // other error
+    }
+    else
+    {
+        // normal 
+        // just print receive message
+        std::cout.write(mBuffer.data(), len);
+        std::cout << std::endl;
+    }
+}
+
 void EchoClient::Stop()
 {
-    if (m_thread == NULL)
+    if (mThread == NULL)
     {
         return;
     }
 
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_exit = true;
+        std::lock_guard<std::mutex> lock(mMutex);
+        mExit = true;
     }
     
-    m_thread->join();
-    delete m_thread;
+    mThread->join();
+    delete mThread;
 }
 
 void EchoClient::Run()
 {
-    m_thread = new std::thread(&EchoClient::WorkingJob, this);
+    WorkingJob();
+    //mThread = new std::thread(&EchoClient::WorkingJob, this);
 }
 
 bool EchoClient::NeedToExit() const
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard<std::mutex> lock(mMutex);
 
-    return m_exit;
+    return mExit;
 }

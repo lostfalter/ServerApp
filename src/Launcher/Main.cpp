@@ -7,13 +7,10 @@
 int main()
 {
     std::cout << "Start to test server app!" << std::endl;
-
     
-    EchoServer server;
-    EchoClient client;
-
-    int b;
-    std::cin >> b;
+    
+    EchoServer server(145);
+    EchoClient client("145");
 
     return 0;
 }

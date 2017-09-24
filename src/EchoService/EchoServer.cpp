@@ -3,14 +3,18 @@
 #include <iostream>
 #include "asio.hpp"
 
-EchoServer::EchoServer()
+EchoServer::EchoServer(int listenPort)
+    : mListenPort(listenPort)
 {
-    Start();
+    mThread = new std::thread(&EchoServer::Start, this);
 }
 
 EchoServer::~EchoServer()
 {
     Stop();
+
+    mThread->join();
+    delete mThread;
 }
 
 void EchoServer::Stop()
@@ -24,7 +28,7 @@ void EchoServer::Start()
     {
         using asio::ip::tcp;
 
-        tcp::acceptor acceptor(m_ioService, tcp::endpoint(tcp::v4(), 13));
+        tcp::acceptor acceptor(m_ioService, tcp::endpoint(tcp::v4(), mListenPort));
 
         WaitForConnection(acceptor);
 

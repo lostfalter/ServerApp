@@ -3,12 +3,13 @@
 #include "TcpConnection.h"
 
 #include <memory>
+#include <thread>
 
 
 class EchoServer
 {
 public:
-    EchoServer();
+    EchoServer(int listenPort);
     ~EchoServer();
 private:
     void Start();
@@ -22,5 +23,8 @@ private:
     void WaitForConnection(asio::ip::tcp::acceptor& acceptor);
 private:
     asio::io_service m_ioService;
+    std::thread* mThread;
+
+    int mListenPort;
 };
 
